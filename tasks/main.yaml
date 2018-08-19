@@ -1,0 +1,77 @@
+# Setups up docker for CentOS7
+
+- block: 
+  - stat:
+     path: /usr/bin/docker
+    register: d_client 
+  
+  # if there is no dockerd then docker version is <1.12
+  - stat:
+     path: /usr/bin/dockerd
+    register: d_server 
+  
+  - name: Fail if dockerd is missing
+    fail: msg="Currently installed docker version is to old to proceed with automatic update"
+    when: d_client.stat.exists == true and d_server.stat.exists == false
+  
+  - name: Remove old packages
+    package:
+       name: "{{item}}"
+       state: absent
+    with_items:
+        - docker
+        - docker-engine
+        - docker-common
+   
+  # Install Docker CE
+  - set_fact: 
+      docker_package: "{{ (package_version != '') | ternary( package_name + '-' + package_version|string + '*', package_name ) }}"
+
+  - name: Installing Docker
+    package:
+      name: "{{ docker_package }}"
+      state: present
+  
+  - name: Ensure /etc/docker/ exists
+    file: 
+       path: /etc/docker/
+       state: directory
+
+  - name: Update /etc/docker/daemon.json
+    template:
+      src: daemon.json.j2
+      dest: /etc/docker/daemon.json
+      backup: yes
+    notify: restart docker
+      
+  # Enable Docker
+  - name: Enabling Docker
+    systemd:
+      name: docker.service
+      enabled: yes
+  
+  # Start Docker
+  - name: Starting Docker
+    systemd:
+      name: docker
+      state: started
+  
+  - name: Making sure service accts exist
+    user: 
+      name: "{{ item }}"
+    with_items:
+       - ansible
+       - devops
+       - jenkins
+  
+  - name: Adding service accts to docker group
+    user: 
+      name: "{{ item }}"
+      groups: "docker"
+      append: yes
+    with_items:
+       - ansible
+       - devops
+       - jenkins 
+
+  become: yes

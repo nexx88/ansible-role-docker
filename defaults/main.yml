@@ -1,0 +1,9 @@
+artifactory: https://artifactory.acme.com/artifactory
+docker_registry: https://docker-registry.acme.com
+docker_daemon_config:
+ storage-driver: "overlay" 
+ registry-mirror:
+   - "{{docker_registry}}"
+
+package_version: "18.03"
+package_name: docker-ce
